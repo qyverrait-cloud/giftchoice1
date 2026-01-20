@@ -69,34 +69,87 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [promotionalBanners, setPromotionalBanners] = useState<PromotionalBanner[]>(initialPromotionalBanners)
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Load data from localStorage on mount
+  // Load data from localStorage on mount (client-side only)
   useEffect(() => {
-    const savedProducts = localStorage.getItem("adminProducts")
-    const savedCategories = localStorage.getItem("adminCategories")
-    const savedMessages = localStorage.getItem("contactMessages")
-    const savedOrders = localStorage.getItem("adminOrders")
-    const savedSocialMediaPosts = localStorage.getItem("adminSocialMediaPosts")
-    const savedPromotionalBanners = localStorage.getItem("adminPromotionalBanners")
+    if (typeof window === "undefined") return
 
-    if (savedProducts) setProducts(JSON.parse(savedProducts))
-    if (savedCategories) setCategories(JSON.parse(savedCategories))
-    if (savedMessages) setMessages(JSON.parse(savedMessages))
-    if (savedOrders) setOrders(JSON.parse(savedOrders))
-    if (savedSocialMediaPosts) setSocialMediaPosts(JSON.parse(savedSocialMediaPosts))
-    if (savedPromotionalBanners) setPromotionalBanners(JSON.parse(savedPromotionalBanners))
+    try {
+      const savedProducts = localStorage.getItem("adminProducts")
+      const savedCategories = localStorage.getItem("adminCategories")
+      const savedMessages = localStorage.getItem("contactMessages")
+      const savedOrders = localStorage.getItem("adminOrders")
+      const savedSocialMediaPosts = localStorage.getItem("adminSocialMediaPosts")
+      const savedPromotionalBanners = localStorage.getItem("adminPromotionalBanners")
 
-    setIsLoaded(true)
+      if (savedProducts) {
+        try {
+          const parsed = JSON.parse(savedProducts)
+          if (Array.isArray(parsed)) setProducts(parsed)
+        } catch (e) {
+          console.error("Failed to parse products:", e)
+        }
+      }
+      if (savedCategories) {
+        try {
+          const parsed = JSON.parse(savedCategories)
+          if (Array.isArray(parsed)) setCategories(parsed)
+        } catch (e) {
+          console.error("Failed to parse categories:", e)
+        }
+      }
+      if (savedMessages) {
+        try {
+          const parsed = JSON.parse(savedMessages)
+          if (Array.isArray(parsed)) setMessages(parsed)
+        } catch (e) {
+          console.error("Failed to parse messages:", e)
+        }
+      }
+      if (savedOrders) {
+        try {
+          const parsed = JSON.parse(savedOrders)
+          if (Array.isArray(parsed)) setOrders(parsed)
+        } catch (e) {
+          console.error("Failed to parse orders:", e)
+        }
+      }
+      if (savedSocialMediaPosts) {
+        try {
+          const parsed = JSON.parse(savedSocialMediaPosts)
+          if (Array.isArray(parsed)) setSocialMediaPosts(parsed)
+        } catch (e) {
+          console.error("Failed to parse social media posts:", e)
+        }
+      }
+      if (savedPromotionalBanners) {
+        try {
+          const parsed = JSON.parse(savedPromotionalBanners)
+          if (Array.isArray(parsed)) setPromotionalBanners(parsed)
+        } catch (e) {
+          console.error("Failed to parse promotional banners:", e)
+        }
+      }
+
+      setIsLoaded(true)
+    } catch (e) {
+      console.error("Error loading from localStorage:", e)
+      setIsLoaded(true)
+    }
   }, [])
 
-  // Save data to localStorage when it changes
+  // Save data to localStorage when it changes (client-side only)
   useEffect(() => {
-    if (isLoaded) {
+    if (typeof window === "undefined" || !isLoaded) return
+
+    try {
       localStorage.setItem("adminProducts", JSON.stringify(products))
       localStorage.setItem("adminCategories", JSON.stringify(categories))
       localStorage.setItem("contactMessages", JSON.stringify(messages))
       localStorage.setItem("adminOrders", JSON.stringify(orders))
       localStorage.setItem("adminSocialMediaPosts", JSON.stringify(socialMediaPosts))
       localStorage.setItem("adminPromotionalBanners", JSON.stringify(promotionalBanners))
+    } catch (e) {
+      console.error("Error saving to localStorage:", e)
     }
   }, [products, categories, messages, orders, socialMediaPosts, promotionalBanners, isLoaded])
 

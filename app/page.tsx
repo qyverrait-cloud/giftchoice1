@@ -28,39 +28,59 @@ function HomePageContent() {
   const { products: adminProducts, categories: adminCategories } = useAdmin()
   const [products, setProducts] = useState<Product[]>(initialProducts)
   const [categories, setCategories] = useState<Category[]>(initialCategories)
+  const [isMounted, setIsMounted] = useState(false)
 
-  // Load products and categories from admin context or localStorage
+  // Client-side mount check to prevent hydration errors
   useEffect(() => {
-    const savedProducts = localStorage.getItem("adminProducts")
-    const savedCategories = localStorage.getItem("adminCategories")
+    setIsMounted(true)
+  }, [])
 
-    if (savedProducts) {
-      try {
-        setProducts(JSON.parse(savedProducts))
-      } catch (e) {
-        console.error("Failed to parse products:", e)
-      }
-    } else if (adminProducts.length > 0) {
-      setProducts(adminProducts)
-    }
+  // Load products and categories from admin context or localStorage (client-side only)
+  useEffect(() => {
+    if (typeof window === "undefined") return
 
-    if (savedCategories) {
-      try {
-        setCategories(JSON.parse(savedCategories))
-      } catch (e) {
-        console.error("Failed to parse categories:", e)
+    try {
+      const savedProducts = localStorage.getItem("adminProducts")
+      const savedCategories = localStorage.getItem("adminCategories")
+
+      if (savedProducts) {
+        try {
+          const parsed = JSON.parse(savedProducts)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setProducts(parsed)
+          }
+        } catch (e) {
+          console.error("Failed to parse products:", e)
+        }
+      } else if (adminProducts.length > 0) {
+        setProducts(adminProducts)
       }
-    } else if (adminCategories.length > 0) {
-      setCategories(adminCategories)
+
+      if (savedCategories) {
+        try {
+          const parsed = JSON.parse(savedCategories)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setCategories(parsed)
+          }
+        } catch (e) {
+          console.error("Failed to parse categories:", e)
+        }
+      } else if (adminCategories.length > 0) {
+        setCategories(adminCategories)
+      }
+    } catch (e) {
+      console.error("Error loading data:", e)
     }
   }, [adminProducts, adminCategories])
 
-  // Shuffle products for variety
-  const shuffledProducts = shuffleArray(products)
-  const featuredProducts = shuffleArray(shuffledProducts.filter((p) => p.isFeatured))
-  const newArrivals = shuffleArray(shuffledProducts.filter((p) => p.isNewArrival))
+  // Shuffle products for variety (client-side only to prevent hydration mismatch)
+  const shuffledProducts = isMounted ? shuffleArray(products) : products
+  const featuredProducts = isMounted ? shuffleArray(shuffledProducts.filter((p) => p.isFeatured)) : shuffledProducts.filter((p) => p.isFeatured)
+  const newArrivals = isMounted ? shuffleArray(shuffledProducts.filter((p) => p.isNewArrival)) : shuffledProducts.filter((p) => p.isNewArrival)
   // Trending products - shuffled
-  const trendingProducts = shuffleArray(shuffledProducts.filter((p) => p.isFeatured || p.isNewArrival)).slice(0, 10)
+  const trendingProducts = isMounted 
+    ? shuffleArray(shuffledProducts.filter((p) => p.isFeatured || p.isNewArrival)).slice(0, 10)
+    : shuffledProducts.filter((p) => p.isFeatured || p.isNewArrival).slice(0, 10)
 
   return (
     <div className="min-h-screen flex flex-col">
