@@ -1,0 +1,12 @@
+:HL["/_next/static/chunks/004d53e46e33f6e4.css","style"]
+:HL["/_next/static/chunks/94b7e315e79e4cf9.css","style"]
+:HL["/_next/static/media/2a65768255d6b625-s.p.d19752fb.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/5c285b27cdda1fe8-s.p.a62025f2.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/decorative-bottles-collection.jpg","image"]
+:HL["/cute-soft-toys-plush.jpg","image"]
+:HL["/birthday-gift-wrapped-present.jpg","image"]
+:HL["/romantic-anniversary-gift.jpg","image"]
+:HL["/elegant-photo-frames.jpg","image"]
+:HL["/personalized-custom-gift.jpg","image"]
+:HL["/gift-choice-logo.png.png","image"]
+0:{"buildId":"053_isvOvhXbgXwQTEeaH","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"categories","paramType":null,"paramKey":"categories","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}

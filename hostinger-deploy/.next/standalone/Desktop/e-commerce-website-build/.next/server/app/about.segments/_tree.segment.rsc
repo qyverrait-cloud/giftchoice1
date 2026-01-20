@@ -1,0 +1,11 @@
+:HL["/_next/static/chunks/004d53e46e33f6e4.css","style"]
+:HL["/_next/static/chunks/94b7e315e79e4cf9.css","style"]
+:HL["/_next/static/media/2a65768255d6b625-s.p.d19752fb.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/_next/static/media/5c285b27cdda1fe8-s.p.a62025f2.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
+:HL["/gift-shop-interior-cozy-warm.jpg","image"]
+:HL["/professional-portrait.png?height=300&width=300&query=professional portrait Priya","image"]
+:HL["/professional-portrait.png?height=300&width=300&query=professional portrait Rahul","image"]
+:HL["/professional-portrait.png?height=300&width=300&query=professional portrait Anita","image"]
+:HL["/professional-portrait.png?height=300&width=300&query=professional portrait Vikram","image"]
+:HL["/gift-choice-logo.png.png","image"]
+0:{"buildId":"053_isvOvhXbgXwQTEeaH","tree":{"name":"","paramType":null,"paramKey":"","hasRuntimePrefetch":false,"slots":{"children":{"name":"about","paramType":null,"paramKey":"about","hasRuntimePrefetch":false,"slots":{"children":{"name":"__PAGE__","paramType":null,"paramKey":"__PAGE__","hasRuntimePrefetch":false,"slots":null,"isRootLayout":false}},"isRootLayout":false}},"isRootLayout":true},"staleTime":300}
