@@ -14,27 +14,51 @@ interface Chatbot3DAvatarProps {
 
 // 3D Model Component with GSAP Animations and Dance Effects
 function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: boolean; mood?: "happy" | "thinking" | "excited" }) {
-  const [modelLoaded, setModelLoaded] = useState(false)
   const [loadError, setLoadError] = useState(false)
   const modelRef = useRef<THREE.Group>(null)
   const animationRefs = useRef<gsap.core.Tween[]>([])
+  const hasSetError = useRef(false)
 
-  let fbx
+  // Use useFBX hook - must be called unconditionally
+  // Wrap in error boundary by using useState for error tracking
+  let fbx = null
+  
+  // useFBX hook must be called unconditionally
   try {
     fbx = useFBX(modelPath)
-    if (fbx) {
-      setModelLoaded(true)
-    }
   } catch (error) {
-    console.error("Error loading FBX model:", error)
-    setLoadError(true)
+    // Only log error once to prevent infinite re-renders
+    if (!hasSetError.current && typeof window !== "undefined") {
+      hasSetError.current = true
+      console.error("Error loading FBX model:", error)
+      setLoadError(true)
+    }
   }
   
-  // Clone the model to avoid sharing state
-  const clonedModel = fbx && !loadError ? fbx.clone() : null
+  // Use ref to store cloned model to prevent re-cloning on every render
+  const clonedModelRef = useRef<THREE.Group | null>(null)
+  const [modelReady, setModelReady] = useState(false)
+
+  // Store scale value in ref to prevent dependency issues
+  const scaleRef = useRef<number>(1)
+
+  // Clone model in useEffect to prevent render-time cloning
+  useEffect(() => {
+    if (fbx && !loadError && !clonedModelRef.current) {
+      try {
+        clonedModelRef.current = fbx.clone()
+        setModelReady(true)
+      } catch (error) {
+        console.error("Error cloning FBX model:", error)
+        setLoadError(true)
+      }
+    } else if (loadError) {
+      setModelReady(false)
+    }
+  }, [fbx, loadError])
 
   useEffect(() => {
-    if (!modelRef.current || !clonedModel) return
+    if (!modelRef.current || !clonedModelRef.current || loadError || !modelReady) return
 
     const model = modelRef.current
 
@@ -48,6 +72,7 @@ function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: bool
     const size = box.getSize(new THREE.Vector3())
     const maxDim = Math.max(size.x, size.y, size.z)
     const scale = 2 / maxDim // Scale to fit in 2 unit space
+    scaleRef.current = scale
     model.scale.set(scale, scale, scale)
 
     // DANCE ANIMATION - Continuous dance movements
@@ -132,7 +157,7 @@ function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: bool
       animationRefs.current.forEach(anim => anim.kill())
       animationRefs.current = []
     }
-  }, [isOpen, mood, clonedModel])
+  }, [isOpen, mood, loadError, modelReady]) // Use modelReady instead of clonedModel
 
   // Smooth rotation with useFrame (dance effect)
   useFrame((state, delta) => {
@@ -144,14 +169,14 @@ function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: bool
     }
   })
 
-  if (loadError || !clonedModel) {
+  if (loadError || !clonedModelRef.current || !modelReady) {
     return null
   }
 
   return (
     <primitive
       ref={modelRef}
-      object={clonedModel}
+      object={clonedModelRef.current}
       dispose={null}
     />
   )
