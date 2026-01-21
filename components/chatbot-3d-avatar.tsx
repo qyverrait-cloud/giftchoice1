@@ -15,25 +15,15 @@ interface Chatbot3DAvatarProps {
 // 3D Model Component with GSAP Animations and Dance Effects
 function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: boolean; mood?: "happy" | "thinking" | "excited" }) {
   const [loadError, setLoadError] = useState(false)
+  const [modelLoaded, setModelLoaded] = useState(false)
   const modelRef = useRef<THREE.Group>(null)
   const animationRefs = useRef<gsap.core.Tween[]>([])
-  const hasSetError = useRef(false)
+  const errorLoggedRef = useRef(false)
 
-  // Use useFBX hook - must be called unconditionally
-  // Wrap in error boundary by using useState for error tracking
-  let fbx = null
-  
-  // useFBX hook must be called unconditionally
-  try {
-    fbx = useFBX(modelPath)
-  } catch (error) {
-    // Only log error once to prevent infinite re-renders
-    if (!hasSetError.current && typeof window !== "undefined") {
-      hasSetError.current = true
-      console.error("Error loading FBX model:", error)
-      setLoadError(true)
-    }
-  }
+  // useFBX hook must be called unconditionally (React hook rule)
+  // It returns the loaded FBX model or throws if there's an error
+  // Errors are caught by Suspense boundary above, but we'll handle gracefully
+  const fbx = useFBX(modelPath)
   
   // Use ref to store cloned model to prevent re-cloning on every render
   const clonedModelRef = useRef<THREE.Group | null>(null)
@@ -44,18 +34,41 @@ function Model3D({ modelPath, isOpen, mood }: { modelPath: string; isOpen?: bool
 
   // Clone model in useEffect to prevent render-time cloning
   useEffect(() => {
+    // Check if model is loaded and valid
     if (fbx && !loadError && !clonedModelRef.current) {
       try {
-        clonedModelRef.current = fbx.clone()
-        setModelReady(true)
+        // Verify fbx is a valid THREE.Group
+        if (fbx instanceof THREE.Group && fbx.children && fbx.children.length > 0) {
+          clonedModelRef.current = fbx.clone()
+          setModelLoaded(true)
+          setModelReady(true)
+        } else {
+          throw new Error("FBX model is not a valid THREE.Group or is empty")
+        }
       } catch (error) {
-        console.error("Error cloning FBX model:", error)
+        if (!errorLoggedRef.current) {
+          errorLoggedRef.current = true
+          const errorMsg = error instanceof Error ? error.message : String(error)
+          console.error("Error cloning FBX model:", errorMsg)
+        }
         setLoadError(true)
+        setModelReady(false)
       }
-    } else if (loadError) {
-      setModelReady(false)
     }
-  }, [fbx, loadError])
+    
+    // If fbx is null/undefined, check after a short delay (it might still be loading)
+    if (!fbx && typeof window !== "undefined" && !loadError && !modelLoaded) {
+      const timeout = setTimeout(() => {
+        if (!fbx && !modelLoaded && !errorLoggedRef.current) {
+          errorLoggedRef.current = true
+          console.warn("FBX model may not have loaded - file path:", modelPath)
+          // Don't set error here as it might still be loading via Suspense
+        }
+      }, 5000) // Wait 5 seconds before warning
+      
+      return () => clearTimeout(timeout)
+    }
+  }, [fbx, loadError, modelPath, modelLoaded])
 
   useEffect(() => {
     if (!modelRef.current || !clonedModelRef.current || loadError || !modelReady) return
