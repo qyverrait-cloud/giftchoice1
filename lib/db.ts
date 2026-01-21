@@ -6,19 +6,49 @@ const getDbConfig = () => {
   // If DATABASE_URL is provided, parse it
   if (process.env.DATABASE_URL) {
     try {
-      const url = new URL(process.env.DATABASE_URL)
+      // Parse mysql:// URL manually to handle special characters like # in password
+      const dbUrl = process.env.DATABASE_URL
+      
+      // Remove mysql:// prefix
+      const withoutProtocol = dbUrl.replace(/^mysql:\/\//, "")
+      
+      // Find @ to separate credentials from host
+      const atIndex = withoutProtocol.lastIndexOf("@")
+      if (atIndex === -1) {
+        throw new Error("Invalid DATABASE_URL format: missing @")
+      }
+      
+      const credentials = withoutProtocol.substring(0, atIndex)
+      const hostAndPath = withoutProtocol.substring(atIndex + 1)
+      
+      // Split credentials into user and password
+      const colonIndex = credentials.indexOf(":")
+      const user = colonIndex !== -1 
+        ? decodeURIComponent(credentials.substring(0, colonIndex))
+        : decodeURIComponent(credentials)
+      const password = colonIndex !== -1 
+        ? decodeURIComponent(credentials.substring(colonIndex + 1))
+        : ""
+      
+      // Parse host, port, and database
+      const [hostPart, ...pathParts] = hostAndPath.split("/")
+      const [host, portStr] = hostPart.split(":")
+      const port = portStr ? parseInt(portStr) : 3306
+      const database = pathParts.join("/").split("?")[0] // Remove query params if any
+      
       return {
-        host: url.hostname,
-        port: parseInt(url.port) || 3306,
-        user: url.username,
-        password: url.password,
-        database: url.pathname.slice(1), // Remove leading /
+        host: host || "localhost",
+        port: port || 3306,
+        user: user,
+        password: password,
+        database: database,
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0,
       }
     } catch (error) {
       console.error("Error parsing DATABASE_URL:", error)
+      // Fall through to individual variables
     }
   }
 
