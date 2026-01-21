@@ -13,6 +13,11 @@ export function CategoryHeaderSlider({ categories }: CategoryHeaderSliderProps) 
   const sliderRef = useRef<HTMLDivElement>(null)
   const [isPaused, setIsPaused] = useState(false)
 
+  // Debug: Log categories
+  useEffect(() => {
+    console.log("CategoryHeaderSlider - Categories received:", categories.length, categories)
+  }, [categories])
+
   useEffect(() => {
     if (!sliderRef.current || categories.length === 0) return
 
@@ -53,7 +58,16 @@ export function CategoryHeaderSlider({ categories }: CategoryHeaderSliderProps) 
     }
   }, [categories, isPaused])
 
-  if (categories.length === 0) return null
+  // Show loading state or empty state
+  if (categories.length === 0) {
+    return (
+      <section className="w-full bg-gradient-to-b from-background via-secondary/30 to-background py-4 md:py-6">
+        <div className="container mx-auto px-4">
+          <p className="text-center text-sm text-muted-foreground">No categories available</p>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section 
@@ -68,7 +82,7 @@ export function CategoryHeaderSlider({ categories }: CategoryHeaderSliderProps) 
           {[...categories, ...categories].map((category, index) => (
             <Link
               key={`${category.id}-${index}`}
-              href={`/category/${category.slug}`}
+              href={`/category/${category.slug || category.id}`}
               className="group flex flex-col items-center gap-2 md:gap-3 flex-shrink-0 min-w-[120px] md:min-w-[140px]"
             >
               <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden p-2 md:p-3 bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-all duration-300 group-hover:scale-110 shadow-md group-hover:shadow-lg">

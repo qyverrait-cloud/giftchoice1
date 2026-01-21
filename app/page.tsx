@@ -47,6 +47,7 @@ function HomePageContent() {
         ])
         setProducts(productsData)
         setCategories(categoriesData)
+        console.log("HomePage - Categories loaded:", categoriesData.length, categoriesData)
       } catch (error) {
         console.error("Error loading data:", error)
       } finally {
