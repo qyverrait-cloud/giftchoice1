@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { MessageCircle, X, Send, Sparkles, Gift, Heart } from "lucide-react"
+import { MessageCircle, X, Send, Sparkles, Gift, Heart, Bot } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import gsap from "gsap"
@@ -9,7 +9,6 @@ import Link from "next/link"
 import { products, categories } from "@/lib/mock-data"
 import { searchProducts } from "@/lib/search"
 import type { Product } from "@/lib/types"
-import { Chatbot3DAvatar } from "@/components/chatbot-3d-avatar"
 
 const WHATSAPP_NUMBER = "919799964364"
 
@@ -930,13 +929,9 @@ export function GiftBuddyChatbot() {
           {/* Outer ring animation */}
           <div className="absolute inset-0 border-4 border-primary/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
           
-          {/* 3D Avatar */}
-          <div className="w-full h-full relative z-10">
-            <Chatbot3DAvatar 
-              modelPath="/chatbot-avatar.fbx" 
-              isOpen={false} 
-              mood={mood}
-            />
+          {/* Assistant Icon */}
+          <div className="w-full h-full relative z-10 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/40 rounded-full">
+            <Bot className="h-10 w-10 text-primary animate-pulse" />
           </div>
         </button>
       </div>
@@ -959,13 +954,9 @@ export function GiftBuddyChatbot() {
             {/* Outer ring animation */}
             <div className="absolute inset-0 border-4 border-primary/30 rounded-full animate-ping" style={{ animationDuration: '2s' }}></div>
             
-            {/* 3D Avatar */}
-            <div className="w-full h-full relative z-10">
-              <Chatbot3DAvatar 
-                modelPath="/chatbot-avatar.fbx" 
-                isOpen={false} 
-                mood={mood}
-              />
+            {/* Assistant Icon */}
+            <div className="w-full h-full relative z-10 flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/40 rounded-full">
+              <Bot className="h-10 w-10 text-primary animate-pulse" />
             </div>
           </button>
         </div>
@@ -991,13 +982,9 @@ export function GiftBuddyChatbot() {
                   "border-primary-foreground/30"
                 } transition-all duration-300`}
               >
-                {/* 3D Avatar */}
-                <div className="w-full h-full">
-                  <Chatbot3DAvatar 
-                    modelPath="/chatbot-avatar.fbx" 
-                    isOpen={isOpen} 
-                    mood={mood}
-                  />
+                {/* Assistant Icon */}
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-primary/40">
+                  <Bot className={`h-8 w-8 text-primary ${mood === "excited" ? "animate-bounce" : mood === "thinking" ? "animate-pulse" : ""}`} />
                 </div>
                 {isTyping && (
                   <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-green-500 rounded-full border-2 border-primary animate-ping shadow-lg"></div>

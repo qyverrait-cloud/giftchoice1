@@ -19,7 +19,7 @@ interface ShopPageProps {
 }
 
 export default function ShopPage({ searchParams }: ShopPageProps) {
-  const params = use(searchParams)
+  const params = searchParams ? use(searchParams) : { search: "", category: "" }
   const initialSearch = params.search || ""
   const initialCategory = params.category || ""
 
@@ -37,19 +37,34 @@ export default function ShopPage({ searchParams }: ShopPageProps) {
     const loadData = async () => {
       try {
         setIsLoading(true)
+        console.log("Loading products and categories...")
         const [productsData, categoriesData] = await Promise.all([
           productsApi.getAll(),
           categoriesApi.getAll(),
         ])
-        setProducts(productsData)
-        setCategories(categoriesData)
+        console.log("Products loaded:", productsData.length, productsData)
+        console.log("Categories loaded:", categoriesData.length, categoriesData)
+        setProducts(productsData || [])
+        setCategories(categoriesData || [])
       } catch (error) {
         console.error("Error loading data:", error)
+        setProducts([])
+        setCategories([])
       } finally {
         setIsLoading(false)
       }
     }
     loadData()
+    
+    // Refresh products every 5 seconds to catch new additions
+    const refreshInterval = setInterval(() => {
+      productsApi.getAll().then((data) => {
+        console.log("Refreshed products:", data.length)
+        setProducts(data || [])
+      }).catch(console.error)
+    }, 5000)
+    
+    return () => clearInterval(refreshInterval)
   }, [])
 
   const filteredProducts = useMemo(() => {
@@ -285,9 +300,14 @@ export default function ShopPage({ searchParams }: ShopPageProps) {
                     <ProductCard key={product.id} product={product} />
                   ))}
                 </div>
+              ) : products.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground text-lg mb-2">No products available yet.</p>
+                  <p className="text-sm text-muted-foreground">Add products from the admin panel to see them here.</p>
+                </div>
               ) : (
                 <div className="text-center py-12">
-                  <p className="text-muted-foreground text-lg">No products found</p>
+                  <p className="text-muted-foreground text-lg">No products match your filters</p>
                   {hasActiveFilters && (
                     <Button variant="outline" onClick={clearFilters} className="mt-4">
                       Clear Filters
