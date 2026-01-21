@@ -1,9 +1,9 @@
 "use client"
 
+import { useState } from "react"
 import { useAdmin } from "@/lib/admin-context"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,99 +14,181 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { useState } from "react"
-import { MessageSquare, Trash2, Mail, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { MessageSquare, Mail, Phone, Calendar, Trash2, Check } from "lucide-react"
 
 export default function MessagesPage() {
-  const { messages, markMessageRead, deleteMessage } = useAdmin()
+  const { messages, markMessageAsRead, deleteMessage, isLoading } = useAdmin()
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [selectedMessage, setSelectedMessage] = useState<string | null>(null)
 
-  const handleDelete = () => {
-    if (deleteId) {
-      deleteMessage(deleteId)
-      setDeleteId(null)
+  const unreadMessages = messages.filter((m) => !m.isRead)
+
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      await markMessageAsRead(id)
+    } catch (error) {
+      console.error("Error marking message as read:", error)
     }
   }
 
-  const unreadCount = messages.filter((m) => !m.isRead).length
+  const handleDelete = async () => {
+    if (deleteId) {
+      try {
+        await deleteMessage(deleteId)
+        setDeleteId(null)
+        if (selectedMessage === deleteId) {
+          setSelectedMessage(null)
+        }
+      } catch (error) {
+        console.error("Error deleting message:", error)
+      }
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-foreground">Messages</h1>
+          <h1 className="text-3xl font-bold text-foreground">Messages</h1>
           <p className="text-muted-foreground mt-1">
-            {messages.length} message{messages.length !== 1 ? "s" : ""}
-            {unreadCount > 0 && ` (${unreadCount} unread)`}
+            {unreadMessages.length > 0 && (
+              <span className="text-primary font-medium">{unreadMessages.length} unread</span>
+            )}
+            {unreadMessages.length > 0 && " • "}
+            {messages.length} total messages
           </p>
         </div>
       </div>
 
-      {messages.length > 0 ? (
-        <div className="space-y-4">
-          {messages.map((message) => (
-            <Card key={message.id} className={!message.isRead ? "border-primary/30 bg-primary/5" : ""}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground">{message.name}</h3>
-                      {!message.isRead && <Badge className="bg-primary text-primary-foreground text-xs">New</Badge>}
+      {messages.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">No messages yet.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Messages List */}
+          <div className="space-y-3">
+            {messages.map((message) => (
+              <Card
+                key={message.id}
+                className={`cursor-pointer transition-colors ${
+                  selectedMessage === message.id ? "border-primary" : ""
+                } ${!message.isRead ? "bg-primary/5" : ""}`}
+                onClick={() => setSelectedMessage(message.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-foreground">{message.name}</span>
+                        {!message.isRead && (
+                          <Badge variant="default" className="text-xs">New</Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{message.message}</p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {message.email}
+                        </div>
+                        {message.phone && (
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3" />
+                            {message.phone}
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(message.createdAt).toLocaleDateString()}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-3">
-                      <span className="flex items-center gap-1">
-                        <Mail className="h-4 w-4" />
-                        {message.email}
-                      </span>
-                      {message.phone && <span>{message.phone}</span>}
-                      <span>{new Date(message.createdAt).toLocaleString()}</span>
-                    </div>
-                    <p className="text-foreground whitespace-pre-wrap">{message.message}</p>
                   </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    {!message.isRead && (
+          {/* Message Detail */}
+          {selectedMessage && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>
+                    {messages.find((m) => m.id === selectedMessage)?.name}
+                  </CardTitle>
+                  <div className="flex gap-2">
+                    {!messages.find((m) => m.id === selectedMessage)?.isRead && (
                       <Button
                         variant="outline"
-                        size="icon"
-                        onClick={() => markMessageRead(message.id)}
-                        title="Mark as read"
-                        className="bg-transparent"
+                        size="sm"
+                        onClick={() => handleMarkAsRead(selectedMessage)}
                       >
-                        <Check className="h-4 w-4" />
+                        <Check className="h-4 w-4 mr-2" />
+                        Mark Read
                       </Button>
                     )}
                     <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setDeleteId(message.id)}
-                      className="text-destructive hover:text-destructive bg-transparent"
-                      title="Delete"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => setDeleteId(selectedMessage)}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
                     </Button>
                   </div>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(() => {
+                  const message = messages.find((m) => m.id === selectedMessage)
+                  if (!message) return null
+                  
+                  return (
+                    <>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Email</p>
+                        <p className="text-foreground">{message.email}</p>
+                      </div>
+                      {message.phone && (
+                        <div>
+                          <p className="text-sm font-medium text-muted-foreground mb-1">Phone</p>
+                          <p className="text-foreground">{message.phone}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Date</p>
+                        <p className="text-foreground">
+                          {new Date(message.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Message</p>
+                        <p className="text-foreground whitespace-pre-wrap">{message.message}</p>
+                      </div>
+                    </>
+                  )
+                })()}
               </CardContent>
             </Card>
-          ))}
+          )}
         </div>
-      ) : (
-        <Card>
-          <CardContent className="py-16">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="text-lg font-medium text-foreground">No messages yet</p>
-              <p className="text-muted-foreground mt-1">Messages from your contact form will appear here</p>
-            </div>
-          </CardContent>
-        </Card>
       )}
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Message</AlertDialogTitle>
@@ -125,3 +207,4 @@ export default function MessagesPage() {
     </div>
   )
 }
+

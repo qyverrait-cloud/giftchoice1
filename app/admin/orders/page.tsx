@@ -1,107 +1,153 @@
 "use client"
 
+import { useState } from "react"
 import { useAdmin } from "@/lib/admin-context"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { Order } from "@/lib/types"
-import { ShoppingBag } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ShoppingBag, Phone, Mail, Calendar } from "lucide-react"
 
 export default function OrdersPage() {
-  const { orders, updateOrderStatus } = useAdmin()
+  const { orders, updateOrderStatus, isLoading } = useAdmin()
+  const [statusFilter, setStatusFilter] = useState<string>("all")
 
-  const getStatusColor = (status: Order["status"]) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-500/20 text-yellow-700 border-yellow-500/30"
-      case "confirmed":
-        return "bg-blue-500/20 text-blue-700 border-blue-500/30"
-      case "delivered":
-        return "bg-green-500/20 text-green-700 border-green-500/30"
-      default:
-        return ""
+  const filteredOrders = statusFilter === "all" 
+    ? orders 
+    : orders.filter((o) => o.status === statusFilter)
+
+  const handleStatusChange = async (orderId: string, newStatus: "pending" | "confirmed" | "delivered" | "cancelled") => {
+    try {
+      await updateOrderStatus(orderId, newStatus)
+    } catch (error) {
+      console.error("Error updating order status:", error)
     }
   }
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "confirmed":
+        return "bg-blue-100 text-blue-800"
+      case "delivered":
+        return "bg-green-100 text-green-800"
+      case "cancelled":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="font-serif text-3xl font-semibold text-foreground">Orders</h1>
-        <p className="text-muted-foreground mt-1">Manage customer orders</p>
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Orders</h1>
+          <p className="text-muted-foreground mt-1">Manage customer orders</p>
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Orders</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="confirmed">Confirmed</SelectItem>
+            <SelectItem value="delivered">Delivered</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {orders.length > 0 ? (
+      {filteredOrders.length === 0 ? (
         <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Order ID</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead className="hidden md:table-cell">Items</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="hidden sm:table-cell">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {orders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-mono text-sm">#{order.id.slice(-6)}</TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{order.customerName}</p>
-                          <p className="text-sm text-muted-foreground">{order.customerPhone}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {order.items.length} item{order.items.length !== 1 ? "s" : ""}
-                      </TableCell>
-                      <TableCell className="font-medium">₹{order.total}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={order.status}
-                          onValueChange={(value) => updateOrderStatus(order.id, value as Order["status"])}
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue>
-                              <Badge variant="outline" className={getStatusColor(order.status)}>
-                                {order.status}
-                              </Badge>
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">Pending</SelectItem>
-                            <SelectItem value="confirmed">Confirmed</SelectItem>
-                            <SelectItem value="delivered">Delivered</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell text-muted-foreground">
-                        {new Date(order.createdAt).toLocaleDateString()}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <ShoppingBag className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">
+              {statusFilter === "all" ? "No orders yet." : `No ${statusFilter} orders.`}
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <CardContent className="py-16">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                <ShoppingBag className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="text-lg font-medium text-foreground">No orders yet</p>
-              <p className="text-muted-foreground mt-1">Orders will appear here when customers checkout via WhatsApp</p>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {filteredOrders.map((order) => (
+            <Card key={order.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Order #{order.id.slice(0, 8)}</CardTitle>
+                    <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(order.createdAt).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Phone className="h-4 w-4" />
+                        {order.customerPhone}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
+                    <span className="text-lg font-bold text-foreground">₹{order.total.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div>
+                    <p className="font-medium text-foreground mb-1">Customer: {order.customerName}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="font-medium text-foreground mb-2">Items:</p>
+                    <div className="space-y-1">
+                      {order.items.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            {item.product.name} × {item.quantity}
+                            {item.selectedSize && ` (${item.selectedSize.name})`}
+                          </span>
+                          <span className="text-foreground">
+                            ₹{(item.product.price * item.quantity).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 border-t">
+                    <Select
+                      value={order.status}
+                      onValueChange={(value) => handleStatusChange(order.id, value as any)}
+                    >
+                      <SelectTrigger className="w-[150px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="delivered">Delivered</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
     </div>
   )
 }
+

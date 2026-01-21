@@ -9,21 +9,58 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const rows = await query("SELECT * FROM orders WHERE id = ?", [id])
+    
+    // Fetch order with items
+    const orderRows = await query(
+      `SELECT 
+        o.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', oi.id,
+            'product_id', oi.product_id,
+            'product_name', oi.product_name,
+            'quantity', oi.quantity,
+            'price', oi.price,
+            'selected_size_name', oi.selected_size_name
+          ) SEPARATOR '|||'
+        ) as order_items
+      FROM orders o
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.id = ?
+      GROUP BY o.id`,
+      [id]
+    )
 
-    if (rows.length === 0) {
+    if (orderRows.length === 0) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    const row: any = rows[0]
+    const row: any = orderRows[0]
+    let items: any[] = []
+    if (row.order_items) {
+      const itemStrings = row.order_items.split('|||')
+      items = itemStrings.map((itemStr: string) => {
+        const item = JSON.parse(itemStr)
+        return {
+          product: {
+            id: item.product_id,
+            name: item.product_name,
+            price: parseFloat(item.price),
+          },
+          quantity: item.quantity,
+          selectedSize: item.selected_size_name ? { name: item.selected_size_name, price: 0 } : undefined,
+        }
+      })
+    }
+
     const order: Order = {
       id: row.id,
-      items: JSON.parse(row.items || "[]"),
-      customerName: row.customerName,
-      customerPhone: row.customerPhone,
+      items: items,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
       total: parseFloat(row.total),
-      status: row.status as "pending" | "confirmed" | "delivered",
-      createdAt: new Date(row.createdAt).toISOString(),
+      status: row.status as "pending" | "confirmed" | "delivered" | "cancelled",
+      createdAt: new Date(row.created_at).toISOString(),
     }
 
     return NextResponse.json(order)
@@ -57,10 +94,6 @@ export async function PUT(
       updates.push("status = ?")
       values.push(body.status)
     }
-    if (body.items !== undefined) {
-      updates.push("items = ?")
-      values.push(JSON.stringify(body.items))
-    }
     if (body.total !== undefined) {
       updates.push("total = ?")
       values.push(parseFloat(body.total))
@@ -73,16 +106,57 @@ export async function PUT(
     values.push(id)
     await query(`UPDATE orders SET ${updates.join(", ")} WHERE id = ?`, values)
 
-    const rows = await query("SELECT * FROM orders WHERE id = ?", [id])
-    const row: any = rows[0]
+    // Fetch updated order with items
+    const orderRows = await query(
+      `SELECT 
+        o.*,
+        GROUP_CONCAT(
+          JSON_OBJECT(
+            'id', oi.id,
+            'product_id', oi.product_id,
+            'product_name', oi.product_name,
+            'quantity', oi.quantity,
+            'price', oi.price,
+            'selected_size_name', oi.selected_size_name
+          ) SEPARATOR '|||'
+        ) as order_items
+      FROM orders o
+      LEFT JOIN order_items oi ON o.id = oi.order_id
+      WHERE o.id = ?
+      GROUP BY o.id`,
+      [id]
+    )
+
+    if (orderRows.length === 0) {
+      return NextResponse.json({ error: "Order not found" }, { status: 404 })
+    }
+
+    const row: any = orderRows[0]
+    let items: any[] = []
+    if (row.order_items) {
+      const itemStrings = row.order_items.split('|||')
+      items = itemStrings.map((itemStr: string) => {
+        const item = JSON.parse(itemStr)
+        return {
+          product: {
+            id: item.product_id,
+            name: item.product_name,
+            price: parseFloat(item.price),
+          },
+          quantity: item.quantity,
+          selectedSize: item.selected_size_name ? { name: item.selected_size_name, price: 0 } : undefined,
+        }
+      })
+    }
+
     const order: Order = {
       id: row.id,
-      items: JSON.parse(row.items || "[]"),
-      customerName: row.customerName,
-      customerPhone: row.customerPhone,
+      items: items,
+      customerName: row.customer_name,
+      customerPhone: row.customer_phone,
       total: parseFloat(row.total),
-      status: row.status as "pending" | "confirmed" | "delivered",
-      createdAt: new Date(row.createdAt).toISOString(),
+      status: row.status as "pending" | "confirmed" | "delivered" | "cancelled",
+      createdAt: new Date(row.created_at).toISOString(),
     }
 
     return NextResponse.json(order)

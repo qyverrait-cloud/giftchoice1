@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
     const params: any[] = []
 
     if (isRead !== null) {
-      sql += " AND isRead = ?"
+      sql += " AND is_read = ?"
       params.push(isRead === "true")
     }
 
-    sql += " ORDER BY createdAt DESC"
+    sql += " ORDER BY created_at DESC"
 
     const rows = await query(sql, params)
     
@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
       email: row.email,
       phone: row.phone || undefined,
       message: row.message,
-      isRead: Boolean(row.isRead),
-      createdAt: new Date(row.createdAt).toISOString(),
+      isRead: Boolean(row.is_read),
+      createdAt: new Date(row.created_at).toISOString(),
     }))
 
     return NextResponse.json(messages)
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     await query(
-      `INSERT INTO contact_messages (id, name, email, phone, message, isRead, createdAt)
+      `INSERT INTO contact_messages (id, name, email, phone, message, is_read, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         message.id,

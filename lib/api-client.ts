@@ -133,3 +133,107 @@ export const cartApi = {
     }),
 }
 
+// Orders API
+export const ordersApi = {
+  getAll: (params?: { status?: string; phone?: string }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.status) searchParams.append("status", params.status)
+    if (params?.phone) searchParams.append("phone", params.phone)
+    
+    const query = searchParams.toString()
+    return fetchApi<any[]>(`/orders${query ? `?${query}` : ""}`)
+  },
+
+  getById: (id: string) => fetchApi<any>(`/orders/${id}`),
+
+  create: (order: any) =>
+    fetchApi<any>("/orders", {
+      method: "POST",
+      body: JSON.stringify(order),
+    }),
+
+  update: (id: string, order: Partial<any>) =>
+    fetchApi<any>(`/orders/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(order),
+    }),
+}
+
+// Messages API
+export const messagesApi = {
+  getAll: (params?: { isRead?: boolean }) => {
+    const searchParams = new URLSearchParams()
+    if (params?.isRead !== undefined) searchParams.append("isRead", String(params.isRead))
+    
+    const query = searchParams.toString()
+    return fetchApi<any[]>(`/messages${query ? `?${query}` : ""}`)
+  },
+
+  getById: (id: string) => fetchApi<any>(`/messages/${id}`),
+
+  create: (message: any) =>
+    fetchApi<any>("/messages", {
+      method: "POST",
+      body: JSON.stringify(message),
+    }),
+
+  update: (id: string, message: Partial<any>) =>
+    fetchApi<any>(`/messages/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(message),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<{ message: string }>(`/messages/${id}`, {
+      method: "DELETE",
+    }),
+}
+
+// Banners API
+export const bannersApi = {
+  getAll: () => fetchApi<any[]>("/banners"),
+
+  getById: (id: string) => fetchApi<any>(`/banners/${id}`),
+
+  create: (banner: any) =>
+    fetchApi<any>("/banners", {
+      method: "POST",
+      body: JSON.stringify(banner),
+    }),
+
+  update: (id: string, banner: Partial<any>) =>
+    fetchApi<any>(`/banners/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(banner),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<{ message: string }>(`/banners/${id}`, {
+      method: "DELETE",
+    }),
+}
+
+// Social Media API
+export const socialMediaApi = {
+  getAll: () => fetchApi<any[]>("/social-media"),
+
+  getById: (id: string) => fetchApi<any>(`/social-media/${id}`),
+
+  create: (post: any) =>
+    fetchApi<any>("/social-media", {
+      method: "POST",
+      body: JSON.stringify(post),
+    }),
+
+  update: (id: string, post: Partial<any>) =>
+    fetchApi<any>(`/social-media/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(post),
+    }),
+
+  delete: (id: string) =>
+    fetchApi<{ message: string }>(`/social-media/${id}`, {
+      method: "DELETE",
+    }),
+}
+

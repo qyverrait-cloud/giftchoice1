@@ -1,14 +1,12 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useAdmin } from "@/lib/admin-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Switch } from "@/components/ui/switch"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,14 +17,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Switch } from "@/components/ui/switch"
-import { Plus, Pencil, Trash2, Upload } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Image as ImageIcon, Plus, Edit, Trash2, Upload } from "lucide-react"
+import Image from "next/image"
 
 export default function BannersPage() {
-  const { promotionalBanners, addPromotionalBanner, updatePromotionalBanner, deletePromotionalBanner } = useAdmin()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { banners, addBanner, updateBanner, deleteBanner, isLoading } = useAdmin()
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     image: "",
     title: "",
@@ -35,196 +45,258 @@ export default function BannersPage() {
     order: 0,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (editingId) {
-      updatePromotionalBanner(editingId, formData)
-    } else {
-      const maxOrder = promotionalBanners.length > 0 ? Math.max(...promotionalBanners.map((b) => b.order)) : 0
-      addPromotionalBanner({ ...formData, order: maxOrder + 1 })
-    }
-
-    setFormData({ image: "", title: "", link: "", isActive: true, order: 0 })
-    setEditingId(null)
-    setIsDialogOpen(false)
-  }
-
-  const handleEdit = (id: string) => {
-    const banner = promotionalBanners.find((b) => b.id === id)
-    if (banner) {
-      setFormData({
-        image: banner.image,
-        title: banner.title,
-        link: banner.link || "",
-        isActive: banner.isActive,
-        order: banner.order,
-      })
-      setEditingId(id)
-      setIsDialogOpen(true)
-    }
-  }
-
-  const handleDelete = () => {
-    if (deleteId) {
-      deletePromotionalBanner(deleteId)
-      setDeleteId(null)
-    }
-  }
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData({ ...formData, image: reader.result as string })
+    if (!file || !file.type.startsWith("image/")) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      if (result) {
+        setFormData({ ...formData, image: result })
       }
-      reader.readAsDataURL(file)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!formData.image) {
+      setError("Image is required")
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      if (editId) {
+        await updateBanner(editId, formData)
+      } else {
+        await addBanner(formData)
+      }
+      setIsDialogOpen(false)
+      setFormData({ image: "", title: "", link: "", isActive: true, order: 0 })
+      setEditId(null)
+    } catch (err: any) {
+      console.error("Error saving banner:", err)
+      setError(err.message || "Failed to save banner")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const activeBanners = promotionalBanners.filter((b) => b.isActive).sort((a, b) => a.order - b.order)
+  const handleEdit = (banner: any) => {
+    setEditId(banner.id)
+    setFormData({
+      image: banner.image || "",
+      title: banner.title || "",
+      link: banner.link || "",
+      isActive: banner.isActive,
+      order: banner.order || 0,
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (deleteId) {
+      try {
+        await deleteBanner(deleteId)
+        setDeleteId(null)
+      } catch (error) {
+        console.error("Error deleting banner:", error)
+      }
+    }
+  }
+
+  const openNewDialog = () => {
+    setEditId(null)
+    setFormData({ image: "", title: "", link: "", isActive: true, order: 0 })
+    setError(null)
+    setIsDialogOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-foreground">Promotional Banners</h1>
-          <p className="text-muted-foreground mt-1">Manage promotional banners and posters for homepage</p>
+          <h1 className="text-3xl font-bold text-foreground">Promotional Banners</h1>
+          <p className="text-muted-foreground mt-1">Manage promotional banners</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                setFormData({ image: "", title: "", link: "", isActive: true, order: 0 })
-                setEditingId(null)
-              }}
-            >
+            <Button onClick={openNewDialog}>
               <Plus className="h-4 w-4 mr-2" />
               Add Banner
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Banner" : "Add Banner"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Banner Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
-              </div>
+          <DialogContent className="max-w-2xl">
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Edit Banner" : "Add New Banner"}</DialogTitle>
+                <DialogDescription>
+                  {editId ? "Update banner information" : "Create a new promotional banner"}
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="space-y-2">
-                <Label htmlFor="link">Link (Optional)</Label>
-                <Input
-                  id="link"
-                  type="url"
-                  placeholder="/shop?category=birthday-gifts or https://..."
-                  value={formData.link}
-                  onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">Add internal page link or external URL</p>
-              </div>
+              {error && (
+                <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label>Banner Image *</Label>
-                <div className="space-y-2">
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label htmlFor="image">Banner Image *</Label>
                   <Input
-                    type="url"
-                    placeholder="Enter image URL or upload image"
-                    value={formData.image}
-                    onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="cursor-pointer"
                   />
-                  <div className="relative">
-                    <label className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Or upload image</span>
-                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    </label>
-                  </div>
                   {formData.image && (
-                    <div className="relative aspect-[16/6] w-full rounded-lg overflow-hidden bg-muted">
-                      <img src={formData.image} alt="Preview" className="object-cover w-full h-full" />
+                    <div className="mt-2 relative w-full h-48 rounded-lg overflow-hidden border">
+                      <Image src={formData.image} alt="Banner" fill className="object-cover" />
                     </div>
                   )}
                 </div>
+
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Banner title (optional)"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="link">Link URL</Label>
+                  <Input
+                    id="link"
+                    value={formData.link}
+                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                    placeholder="https://example.com (optional)"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="order">Display Order</Label>
+                    <Input
+                      id="order"
+                      type="number"
+                      value={formData.order}
+                      onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-6">
+                    <Label htmlFor="isActive">Active</Label>
+                    <Switch
+                      id="isActive"
+                      checked={formData.isActive}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="isActive">Active</Label>
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
-                  {editingId ? "Update Banner" : "Add Banner"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter className="mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
-              </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : editId ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Banners Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {promotionalBanners.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            No promotional banners yet. Add your first banner to get started!
-          </div>
-        ) : (
-          promotionalBanners.map((banner) => (
-            <Card key={banner.id} className={`overflow-hidden ${!banner.isActive ? "opacity-60" : ""}`}>
-              <div className="relative aspect-[16/6] overflow-hidden bg-muted">
-                <img src={banner.image || "/placeholder.svg"} alt={banner.title} className="object-cover w-full h-full" />
+      {banners.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <ImageIcon className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">No banners yet. Add your first banner!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {banners.map((banner) => (
+            <Card key={banner.id} className="overflow-hidden">
+              <div className="relative h-48 bg-secondary">
+                {banner.image ? (
+                  <Image src={banner.image} alt={banner.title || "Banner"} fill className="object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <ImageIcon className="h-16 w-16 text-muted-foreground" />
+                  </div>
+                )}
                 {!banner.isActive && (
-                  <div className="absolute top-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium">
-                    Inactive
+                  <div className="absolute top-2 right-2">
+                    <span className="px-2 py-1 text-xs bg-red-500 text-white rounded">Inactive</span>
                   </div>
                 )}
               </div>
               <CardContent className="p-4">
-                <h3 className="font-medium text-foreground mb-1">{banner.title}</h3>
+                <h3 className="font-semibold text-foreground mb-1">{banner.title || "Untitled Banner"}</h3>
                 {banner.link && (
-                  <p className="text-xs text-muted-foreground truncate">{banner.link}</p>
+                  <p className="text-sm text-muted-foreground mb-2 truncate">{banner.link}</p>
                 )}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(banner.id)}>
-                    <Pencil className="h-4 w-4" />
+                <p className="text-xs text-muted-foreground mb-3">Order: {banner.order}</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleEdit(banner)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(banner.id)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => setDeleteId(banner.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Banner</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this promotional banner? This action cannot be undone.
+              Are you sure you want to delete this banner? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

@@ -22,8 +22,8 @@ export async function GET(
       email: row.email,
       phone: row.phone || undefined,
       message: row.message,
-      isRead: Boolean(row.isRead),
-      createdAt: new Date(row.createdAt).toISOString(),
+      isRead: Boolean(row.is_read),
+      createdAt: new Date(row.created_at).toISOString(),
     }
 
     return NextResponse.json(message)
@@ -54,7 +54,7 @@ export async function PUT(
     const values: any[] = []
 
     if (body.isRead !== undefined) {
-      updates.push("isRead = ?")
+      updates.push("is_read = ?")
       values.push(Boolean(body.isRead))
     }
 
@@ -73,8 +73,8 @@ export async function PUT(
       email: row.email,
       phone: row.phone || undefined,
       message: row.message,
-      isRead: Boolean(row.isRead),
-      createdAt: new Date(row.createdAt).toISOString(),
+      isRead: Boolean(row.is_read),
+      createdAt: new Date(row.created_at).toISOString(),
     }
 
     return NextResponse.json(message)

@@ -1,14 +1,11 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useAdmin } from "@/lib/admin-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,54 +16,44 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Plus, Pencil, Trash2, Upload } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { FolderTree, Plus, Edit, Trash2, Upload } from "lucide-react"
+import Image from "next/image"
 
 export default function CategoriesPage() {
-  const { categories, addCategory, updateCategory, deleteCategory, products } = useAdmin()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { categories, addCategory, updateCategory, deleteCategory, isLoading } = useAdmin()
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({ name: "", slug: "", image: "" })
+  const [editId, setEditId] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (editingId) {
-      updateCategory(editingId, formData)
-    } else {
-      addCategory(formData)
-    }
-
-    setFormData({ name: "", slug: "", image: "" })
-    setEditingId(null)
-    setIsDialogOpen(false)
-  }
-
-  const handleEdit = (id: string) => {
-    const category = categories.find((c) => c.id === id)
-    if (category) {
-      setFormData({ name: category.name, slug: category.slug, image: category.image })
-      setEditingId(id)
-      setIsDialogOpen(true)
-    }
-  }
-
-  const handleDelete = () => {
-    if (deleteId) {
-      deleteCategory(deleteId)
-      setDeleteId(null)
-    }
-  }
+  const [formData, setFormData] = useState({
+    name: "",
+    slug: "",
+    image: "",
+  })
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData({ ...formData, image: reader.result as string })
+    if (!file || !file.type.startsWith("image/")) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      if (result) {
+        setFormData({ ...formData, image: result })
       }
-      reader.readAsDataURL(file)
     }
+    reader.readAsDataURL(file)
   }
 
   const handleNameChange = (name: string) => {
@@ -77,132 +64,208 @@ export default function CategoriesPage() {
     setFormData({ ...formData, name, slug })
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!formData.name) {
+      setError("Name is required")
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      if (editId) {
+        await updateCategory(editId, formData)
+      } else {
+        await addCategory(formData)
+      }
+      setIsDialogOpen(false)
+      setFormData({ name: "", slug: "", image: "" })
+      setEditId(null)
+    } catch (err: any) {
+      console.error("Error saving category:", err)
+      setError(err.message || "Failed to save category")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEdit = (category: any) => {
+    setEditId(category.id)
+    setFormData({
+      name: category.name,
+      slug: category.slug,
+      image: category.image || "",
+    })
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (deleteId) {
+      try {
+        await deleteCategory(deleteId)
+        setDeleteId(null)
+      } catch (error) {
+        console.error("Error deleting category:", error)
+      }
+    }
+  }
+
+  const openNewDialog = () => {
+    setEditId(null)
+    setFormData({ name: "", slug: "", image: "" })
+    setError(null)
+    setIsDialogOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-foreground">Categories</h1>
-          <p className="text-muted-foreground mt-1">Manage your product categories</p>
+          <h1 className="text-3xl font-bold text-foreground">Categories</h1>
+          <p className="text-muted-foreground mt-1">Manage product categories</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button
-              className="gap-2"
-              onClick={() => {
-                setFormData({ name: "", slug: "", image: "" })
-                setEditingId(null)
-              }}
-            >
-              <Plus className="h-4 w-4" />
+            <Button onClick={openNewDialog}>
+              <Plus className="h-4 w-4 mr-2" />
               Add Category
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Category" : "Add New Category"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Category Name *</Label>
-                <Input id="name" value={formData.name} onChange={(e) => handleNameChange(e.target.value)} required />
-              </div>
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Edit Category" : "Add New Category"}</DialogTitle>
+                <DialogDescription>
+                  {editId ? "Update category information" : "Create a new product category"}
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="space-y-2">
-                <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  className="text-muted-foreground"
-                />
-              </div>
+              {error && (
+                <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  {error}
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <Label>Category Image</Label>
-                <div className="flex gap-4">
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label htmlFor="name">Category Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="slug">Slug</Label>
+                  <Input
+                    id="slug"
+                    value={formData.slug}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    placeholder="Auto-generated from name"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="image">Category Image</Label>
+                  <Input
+                    id="image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="cursor-pointer"
+                  />
                   {formData.image && (
-                    <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted">
-                      <img src={formData.image || "/placeholder.svg"} alt="" className="object-cover w-full h-full" />
+                    <div className="mt-2 relative w-32 h-32 rounded-lg overflow-hidden border">
+                      <Image src={formData.image} alt="Category" fill className="object-cover" />
                     </div>
                   )}
-                  <label className="flex-1 h-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center cursor-pointer hover:border-primary transition-colors">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Upload className="h-5 w-5" />
-                      <span className="text-sm">Upload image</span>
-                    </div>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                  </label>
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4">
+              <DialogFooter className="mt-6">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsDialogOpen(false)}
-                  className="flex-1 bg-transparent"
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="flex-1">
-                  {editingId ? "Update" : "Create"}
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : editId ? "Update" : "Create"}
                 </Button>
-              </div>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {categories.map((category) => {
-          const productCount = products.filter((p) => p.category === category.slug).length
-
-          return (
-            <Card key={category.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted">
-                    <img
-                      src={category.image || "/placeholder.svg"}
-                      alt={category.name}
-                      className="object-cover w-full h-full"
-                    />
+      {/* Categories Grid */}
+      {categories.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">No categories yet. Add your first category!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {categories.map((category) => (
+            <Card key={category.id} className="overflow-hidden">
+              <div className="relative h-48 bg-secondary">
+                {category.image ? (
+                  <Image src={category.image} alt={category.name} fill className="object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <FolderTree className="h-16 w-16 text-muted-foreground" />
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(category.id)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => setDeleteId(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                )}
+              </div>
+              <CardContent className="p-4">
+                <h3 className="font-semibold text-foreground mb-1">{category.name}</h3>
+                <p className="text-sm text-muted-foreground mb-3">/{category.slug}</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleEdit(category)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => setDeleteId(category.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <CardTitle className="text-lg">{category.name}</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {productCount} product{productCount !== 1 ? "s" : ""}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">/{category.slug}</p>
               </CardContent>
             </Card>
-          )
-        })}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Delete Confirmation */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this category? Products in this category will not be deleted but will need
-              to be reassigned.
+              Are you sure you want to delete this category? Products in this category will have their category set to null.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -216,3 +279,4 @@ export default function CategoriesPage() {
     </div>
   )
 }
+

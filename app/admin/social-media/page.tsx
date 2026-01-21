@@ -1,14 +1,13 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { useAdmin } from "@/lib/admin-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,262 +18,345 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { Plus, Pencil, Trash2, Upload, Instagram, Youtube, Link2 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Share2, Plus, Edit, Trash2, Upload } from "lucide-react"
+import Image from "next/image"
 
 export default function SocialMediaPage() {
-  const { socialMediaPosts, addSocialMediaPost, updateSocialMediaPost, deleteSocialMediaPost } = useAdmin()
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  const { socialMediaPosts, addSocialMediaPost, updateSocialMediaPost, deleteSocialMediaPost, isLoading } = useAdmin()
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const [formData, setFormData] = useState({
     thumbnail: "",
     title: "",
     link: "",
     videoLink: "",
-    platform: "instagram" as "instagram" | "youtube" | "facebook" | "tiktok",
+    platform: "" as "instagram" | "youtube" | "facebook" | "tiktok" | "",
     isActive: true,
     order: 0,
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (editingId) {
-      updateSocialMediaPost(editingId, formData)
-    } else {
-      const maxOrder = socialMediaPosts.length > 0 ? Math.max(...socialMediaPosts.map((p) => p.order)) : 0
-      addSocialMediaPost({ ...formData, order: maxOrder + 1 })
-    }
-
-    setFormData({ thumbnail: "", title: "", link: "", videoLink: "", platform: "instagram", isActive: true, order: 0 })
-    setEditingId(null)
-    setIsDialogOpen(false)
-  }
-
-  const handleEdit = (id: string) => {
-    const post = socialMediaPosts.find((p) => p.id === id)
-    if (post) {
-      setFormData({
-        thumbnail: post.thumbnail,
-        title: post.title,
-        link: post.link || "",
-        videoLink: post.videoLink || "",
-        platform: post.platform || "instagram",
-        isActive: post.isActive,
-        order: post.order,
-      })
-      setEditingId(id)
-      setIsDialogOpen(true)
-    }
-  }
-
-  const handleDelete = () => {
-    if (deleteId) {
-      deleteSocialMediaPost(deleteId)
-      setDeleteId(null)
-    }
-  }
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setFormData({ ...formData, thumbnail: reader.result as string })
+    if (!file || !file.type.startsWith("image/")) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const result = e.target?.result as string
+      if (result) {
+        setFormData({ ...formData, thumbnail: result })
       }
-      reader.readAsDataURL(file)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+
+    if (!formData.thumbnail) {
+      setError("Thumbnail image is required")
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      const postData = {
+        ...formData,
+        platform: formData.platform || undefined,
+      }
+      if (editId) {
+        await updateSocialMediaPost(editId, postData)
+      } else {
+        await addSocialMediaPost(postData)
+      }
+      setIsDialogOpen(false)
+      setFormData({
+        thumbnail: "",
+        title: "",
+        link: "",
+        videoLink: "",
+        platform: "",
+        isActive: true,
+        order: 0,
+      })
+      setEditId(null)
+    } catch (err: any) {
+      console.error("Error saving social media post:", err)
+      setError(err.message || "Failed to save social media post")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const handleImageUrl = (url: string) => {
-    setFormData({ ...formData, thumbnail: url })
+  const handleEdit = (post: any) => {
+    setEditId(post.id)
+    setFormData({
+      thumbnail: post.thumbnail || "",
+      title: post.title || "",
+      link: post.link || "",
+      videoLink: post.videoLink || "",
+      platform: post.platform || "",
+      isActive: post.isActive,
+      order: post.order || 0,
+    })
+    setIsDialogOpen(true)
   }
 
-  const activePosts = socialMediaPosts.filter((p) => p.isActive).sort((a, b) => a.order - b.order)
+  const handleDelete = async () => {
+    if (deleteId) {
+      try {
+        await deleteSocialMediaPost(deleteId)
+        setDeleteId(null)
+      } catch (error) {
+        console.error("Error deleting social media post:", error)
+      }
+    }
+  }
+
+  const openNewDialog = () => {
+    setEditId(null)
+    setFormData({
+      thumbnail: "",
+      title: "",
+      link: "",
+      videoLink: "",
+      platform: "",
+      isActive: true,
+      order: 0,
+    })
+    setError(null)
+    setIsDialogOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl font-semibold text-foreground">Social Media Posts</h1>
-          <p className="text-muted-foreground mt-1">Manage your Instagram, YouTube, and social media posts/reels</p>
+          <h1 className="text-3xl font-bold text-foreground">Social Media Posts</h1>
+          <p className="text-muted-foreground mt-1">Manage social media content</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={() => {
-              setFormData({ thumbnail: "", title: "", link: "", videoLink: "", platform: "instagram", isActive: true, order: 0 })
-              setEditingId(null)
-            }}>
+            <Button onClick={openNewDialog}>
               <Plus className="h-4 w-4 mr-2" />
               Add Post
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingId ? "Edit Social Media Post" : "Add Social Media Post"}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Post Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                />
-              </div>
+          <DialogContent className="max-w-2xl">
+            <form onSubmit={handleSubmit}>
+              <DialogHeader>
+                <DialogTitle>{editId ? "Edit Social Media Post" : "Add New Social Media Post"}</DialogTitle>
+                <DialogDescription>
+                  {editId ? "Update post information" : "Create a new social media post"}
+                </DialogDescription>
+              </DialogHeader>
 
-              <div className="space-y-2">
-                <Label htmlFor="platform">Platform</Label>
-                <Select
-                  value={formData.platform}
-                  onValueChange={(value: "instagram" | "youtube" | "facebook" | "tiktok") =>
-                    setFormData({ ...formData, platform: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="youtube">YouTube</SelectItem>
-                    <SelectItem value="facebook">Facebook</SelectItem>
-                    <SelectItem value="tiktok">TikTok</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="link">Post/Video Link (Optional)</Label>
-                <div className="space-y-2">
-                  <Input
-                    id="link"
-                    type="url"
-                    placeholder="https://instagram.com/p/... or https://youtube.com/watch?v=..."
-                    value={formData.link}
-                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
-                  />
-                  <Input
-                    id="videoLink"
-                    type="url"
-                    placeholder="Direct video URL (for YouTube, Instagram Reels, etc.)"
-                    value={formData.videoLink}
-                    onChange={(e) => setFormData({ ...formData, videoLink: e.target.value })}
-                  />
+              {error && (
+                <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+                  {error}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Add Instagram post URL, YouTube video link, or direct video URL for reels/videos
-                </p>
-              </div>
+              )}
 
-              <div className="space-y-2">
-                <Label>Thumbnail Image *</Label>
-                <div className="space-y-2">
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label htmlFor="thumbnail">Thumbnail Image *</Label>
                   <Input
-                    type="url"
-                    placeholder="Enter image URL or upload image"
-                    value={formData.thumbnail}
-                    onChange={(e) => handleImageUrl(e.target.value)}
+                    id="thumbnail"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="cursor-pointer"
                   />
-                  <div className="relative">
-                    <label className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary transition-colors">
-                      <Upload className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Or upload image</span>
-                      <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                    </label>
-                  </div>
                   {formData.thumbnail && (
-                    <div className="relative aspect-[3/4] w-32 rounded-lg overflow-hidden bg-muted">
-                      <img src={formData.thumbnail} alt="Preview" className="object-cover w-full h-full" />
+                    <div className="mt-2 relative w-full h-48 rounded-lg overflow-hidden border">
+                      <Image src={formData.thumbnail} alt="Thumbnail" fill className="object-cover" />
                     </div>
                   )}
                 </div>
+
+                <div>
+                  <Label htmlFor="title">Title</Label>
+                  <Input
+                    id="title"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder="Post title (optional)"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="platform">Platform</Label>
+                  <Select
+                    value={formData.platform}
+                    onValueChange={(value) => setFormData({ ...formData, platform: value as any })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="instagram">Instagram</SelectItem>
+                      <SelectItem value="youtube">YouTube</SelectItem>
+                      <SelectItem value="facebook">Facebook</SelectItem>
+                      <SelectItem value="tiktok">TikTok</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="link">Link URL</Label>
+                  <Input
+                    id="link"
+                    value={formData.link}
+                    onChange={(e) => setFormData({ ...formData, link: e.target.value })}
+                    placeholder="https://example.com (optional)"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="videoLink">Video Link</Label>
+                  <Input
+                    id="videoLink"
+                    value={formData.videoLink}
+                    onChange={(e) => setFormData({ ...formData, videoLink: e.target.value })}
+                    placeholder="https://youtube.com/watch?v=... (optional)"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="order">Display Order</Label>
+                    <Input
+                      id="order"
+                      type="number"
+                      value={formData.order}
+                      onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 0 })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-6">
+                    <Label htmlFor="isActive">Active</Label>
+                    <Switch
+                      id="isActive"
+                      checked={formData.isActive}
+                      onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                    />
+                  </div>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="isActive">Active</Label>
-                <Switch
-                  id="isActive"
-                  checked={formData.isActive}
-                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button type="submit" className="flex-1">
-                  {editingId ? "Update Post" : "Add Post"}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <DialogFooter className="mt-6">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsDialogOpen(false)}
+                >
                   Cancel
                 </Button>
-              </div>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? "Saving..." : editId ? "Update" : "Create"}
+                </Button>
+              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
       </div>
 
       {/* Posts Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {socialMediaPosts.length === 0 ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground">
-            No social media posts yet. Add your first post to get started!
-          </div>
-        ) : (
-          socialMediaPosts.map((post) => (
-            <Card key={post.id} className={`overflow-hidden ${!post.isActive ? "opacity-60" : ""}`}>
-              <div className="relative aspect-[3/4] overflow-hidden bg-muted">
-                <img src={post.thumbnail || "/placeholder.svg"} alt={post.title} className="object-cover w-full h-full" />
+      {socialMediaPosts.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Share2 className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground text-center">No social media posts yet. Add your first post!</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {socialMediaPosts.map((post) => (
+            <Card key={post.id} className="overflow-hidden">
+              <div className="relative h-48 bg-secondary">
+                {post.thumbnail ? (
+                  <Image src={post.thumbnail} alt={post.title || "Post"} fill className="object-cover" />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <Share2 className="h-16 w-16 text-muted-foreground" />
+                  </div>
+                )}
                 {!post.isActive && (
-                  <div className="absolute top-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium">
-                    Inactive
+                  <div className="absolute top-2 right-2">
+                    <span className="px-2 py-1 text-xs bg-red-500 text-white rounded">Inactive</span>
+                  </div>
+                )}
+                {post.platform && (
+                  <div className="absolute top-2 left-2">
+                    <span className="px-2 py-1 text-xs bg-primary text-primary-foreground rounded capitalize">
+                      {post.platform}
+                    </span>
                   </div>
                 )}
               </div>
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <h3 className="font-medium text-foreground line-clamp-1">{post.title}</h3>
-                  {post.platform === "instagram" && <Instagram className="h-4 w-4 text-primary flex-shrink-0" />}
-                  {post.platform === "youtube" && <Youtube className="h-4 w-4 text-primary flex-shrink-0" />}
-                </div>
+                <h3 className="font-semibold text-foreground mb-1">{post.title || "Untitled Post"}</h3>
                 {post.link && (
-                  <a
-                    href={post.link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 mt-1"
-                  >
-                    <Link2 className="h-3 w-3" />
-                    View Post
-                  </a>
+                  <p className="text-sm text-muted-foreground mb-2 truncate">{post.link}</p>
                 )}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(post.id)}>
-                    <Pencil className="h-4 w-4" />
+                <p className="text-xs text-muted-foreground mb-3">Order: {post.order}</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => handleEdit(post)}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(post.id)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button
+                    variant="destructive"
+                    className="flex-1"
+                    onClick={() => setDeleteId(post.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
                   </Button>
                 </div>
               </CardContent>
             </Card>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Post</AlertDialogTitle>
+            <AlertDialogTitle>Delete Social Media Post</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this social media post? This action cannot be undone.
+              Are you sure you want to delete this post? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
