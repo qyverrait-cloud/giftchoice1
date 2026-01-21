@@ -79,15 +79,41 @@ export const getConnection = async (): Promise<mysql.Pool> => {
       )
     }
 
-    pool = mysql.createPool(config)
+    // Add connection timeout and better error handling for remote databases
+    const poolConfig = {
+      ...config,
+      connectTimeout: 10000, // 10 seconds
+      acquireTimeout: 10000,
+      timeout: 10000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 0,
+    }
+    
+    pool = mysql.createPool(poolConfig)
     
     // Test connection
     try {
       const connection = await pool.getConnection()
       console.log("✅ Database connected successfully")
+      console.log(`   Host: ${config.host}`)
+      console.log(`   Database: ${config.database}`)
       connection.release()
-    } catch (error) {
-      console.error("❌ Database connection failed:", error)
+    } catch (error: any) {
+      console.error("❌ Database connection failed:")
+      console.error(`   Host: ${config.host}`)
+      console.error(`   Database: ${config.database}`)
+      console.error(`   Error: ${error.message || error}`)
+      
+      // Provide helpful error message
+      if (config.host === "localhost" || config.host === "127.0.0.1") {
+        throw new Error(
+          `Cannot connect to database at localhost. ` +
+          `For Hostinger MySQL, use the remote host (e.g., mysql.hostinger.com) ` +
+          `or check your Hostinger MySQL configuration in the panel. ` +
+          `Original error: ${error.message || error}`
+        )
+      }
+      
       throw error
     }
   }

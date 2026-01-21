@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { useAdmin } from "@/lib/admin-context"
 import type { ProductSize } from "@/lib/types"
@@ -13,38 +12,75 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Upload, X, Plus } from "lucide-react"
+import { ArrowLeft, Upload, X, Plus, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 
 export default function NewProductPage() {
   const router = useRouter()
-  const { addProduct, categories } = useAdmin()
+  const { addProduct, categories, isLoading: categoriesLoading } = useAdmin()
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     price: "",
-    category: "",
+    categoryId: "",
+    categoryName: "", // For manual entry
     badge: "",
     inStock: true,
     isFeatured: false,
     isNewArrival: false,
     isFestival: false,
   })
+  const [useManualCategory, setUseManualCategory] = useState(false)
   const [images, setImages] = useState<string[]>([])
   const [sizes, setSizes] = useState<ProductSize[]>([])
   const [newSize, setNewSize] = useState({ name: "", price: "" })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const dropZoneRef = useRef<HTMLDivElement>(null)
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.add("border-primary", "bg-primary/5")
+    }
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.remove("border-primary", "bg-primary/5")
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (dropZoneRef.current) {
+      dropZoneRef.current.classList.remove("border-primary", "bg-primary/5")
+    }
+
+    const files = Array.from(e.dataTransfer.files).filter((file) => file.type.startsWith("image/"))
+    handleFiles(files)
+  }, [])
+
+  const handleFiles = (files: File[]) => {
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImages((prev) => [...prev, reader.result as string])
+      }
+      reader.readAsDataURL(file)
+    })
+  }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (files) {
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setImages((prev) => [...prev, reader.result as string])
-        }
-        reader.readAsDataURL(file)
-      })
+      handleFiles(Array.from(files))
     }
   }
 
@@ -63,24 +99,40 @@ export default function NewProductPage() {
     setSizes((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsSubmitting(true)
 
-    addProduct({
-      name: formData.name,
-      description: formData.description,
-      price: Number(formData.price),
-      images: images.length > 0 ? images : ["/placeholder.svg"],
-      category: formData.category,
-      badge: formData.badge || undefined,
-      sizes: sizes.length > 0 ? sizes : undefined,
-      inStock: formData.inStock,
-      isFeatured: formData.isFeatured,
-      isNewArrival: formData.isNewArrival,
-      isFestival: formData.isFestival,
-    })
+    try {
+      // Prepare product data with categoryId
+      const productData: any = {
+        name: formData.name,
+        description: formData.description,
+        price: Number(formData.price),
+        images: images.length > 0 ? images : ["/placeholder.svg"],
+        badge: formData.badge || undefined,
+        sizes: sizes.length > 0 ? sizes : undefined,
+        inStock: formData.inStock,
+        isFeatured: formData.isFeatured,
+        isNewArrival: formData.isNewArrival,
+        isFestival: formData.isFestival,
+      }
 
-    router.push("/admin/products")
+      // Use categoryId if selected, otherwise use category name for manual entry
+      if (useManualCategory && formData.categoryName) {
+        productData.category = formData.categoryName
+      } else if (formData.categoryId) {
+        productData.categoryId = formData.categoryId
+      }
+
+      await addProduct(productData)
+      router.push("/admin/products")
+    } catch (error) {
+      console.error("Error creating product:", error)
+      alert("Failed to create product. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -132,6 +184,7 @@ export default function NewProductPage() {
                   <Input
                     id="price"
                     type="number"
+                    step="0.01"
                     value={formData.price}
                     onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                     required
@@ -139,22 +192,54 @@ export default function NewProductPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
+                  <div className="flex items-center justify-between mb-2">
+                    <Label htmlFor="category">Category *</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="manual-category"
+                        checked={useManualCategory}
+                        onChange={(e) => setUseManualCategory(e.target.checked)}
+                        className="h-4 w-4"
+                      />
+                      <Label htmlFor="manual-category" className="text-xs font-normal cursor-pointer">
+                        Manual Type
+                      </Label>
+                    </div>
+                  </div>
+
+                  {useManualCategory ? (
+                    <Input
+                      id="category"
+                      placeholder="Enter category name"
+                      value={formData.categoryName}
+                      onChange={(e) => setFormData({ ...formData, categoryName: e.target.value })}
+                      required={useManualCategory}
+                    />
+                  ) : (
+                    <Select
+                      value={formData.categoryId}
+                      onValueChange={(value) => setFormData({ ...formData, categoryId: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={categoriesLoading ? "Loading..." : "Select category"} />
+                      </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.slug}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
+                      {categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                          No categories available. Create a category first.
+                        </div>
+                      )}
                     </SelectContent>
-                  </Select>
+                    </Select>
+                  )}
                 </div>
               </div>
 
@@ -170,31 +255,56 @@ export default function NewProductPage() {
             </CardContent>
           </Card>
 
-          {/* Images */}
+          {/* Images with Drag & Drop */}
           <Card>
             <CardHeader>
               <CardTitle>Product Images</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                    <img src={image || "/placeholder.svg"} alt="" className="object-cover w-full h-full" />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute top-2 right-2 p-1 bg-background/80 rounded-full hover:bg-background"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-                <label className="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors">
-                  <Upload className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground mt-2">Upload</span>
-                  <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
-                </label>
+              {/* Drag & Drop Zone */}
+              <div
+                ref={dropZoneRef}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className="border-2 border-dashed border-border rounded-lg p-8 text-center mb-4 cursor-pointer hover:border-primary transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <ImageIcon className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-sm text-muted-foreground mb-2">
+                  Drag and drop images here, or click to select
+                </p>
+                <p className="text-xs text-muted-foreground">Supports: JPG, PNG, WebP</p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
               </div>
+
+              {/* Image Preview Grid */}
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {images.map((image, index) => (
+                    <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-muted group">
+                      <img src={image || "/placeholder.svg"} alt={`Product ${index + 1}`} className="object-cover w-full h-full" />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-2 right-2 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                      <div className="absolute bottom-2 left-2 text-xs bg-background/80 px-2 py-1 rounded">
+                        {index + 1}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -228,6 +338,7 @@ export default function NewProductPage() {
                 />
                 <Input
                   type="number"
+                  step="0.01"
                   placeholder="Price"
                   value={newSize.price}
                   onChange={(e) => setNewSize({ ...newSize, price: e.target.value })}
@@ -283,8 +394,8 @@ export default function NewProductPage() {
             </CardContent>
           </Card>
 
-          <Button type="submit" size="lg" className="w-full">
-            Create Product
+          <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Creating..." : "Create Product"}
           </Button>
         </div>
       </form>

@@ -4,7 +4,8 @@ export interface Product {
   description: string
   price: number
   images: string[]
-  category: string
+  category: string // Category name (for backward compatibility)
+  categoryId?: string // Category ID (for proper relationships)
   subcategory?: string
   sizes?: ProductSize[]
   badge?: string

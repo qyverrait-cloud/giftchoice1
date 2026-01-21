@@ -2,6 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { DM_Sans, Playfair_Display } from "next/font/google"
 import { GiftBuddyChatbot } from "@/components/gift-buddy-chatbot"
+import { CartProvider } from "@/lib/cart-context"
+import { AdminProvider } from "@/lib/admin-context"
 import "./globals.css"
 
 const dmSans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" })
@@ -11,7 +13,7 @@ export const metadata: Metadata = {
   title: "GIFT CHOICE - Enfolding Your Emotions...",
   description:
     "Discover unique and heartfelt gifts for birthdays, anniversaries, and special moments. Fast delivery and personalized options available.",
-    generator: 'v0.app'
+  generator: "v0.app",
 }
 
 export default function RootLayout({
@@ -22,8 +24,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${dmSans.variable} ${playfair.variable} font-sans antialiased`}>
-        {children}
-        <GiftBuddyChatbot />
+        <AdminProvider>
+          <CartProvider>
+            {children}
+            <GiftBuddyChatbot />
+          </CartProvider>
+        </AdminProvider>
       </body>
     </html>
   )

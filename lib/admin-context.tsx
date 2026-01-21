@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import type { Product, ContactMessage, Order, Category, SocialMediaPost, PromotionalBanner } from "./types"
-import { products as initialProducts, categories as initialCategories } from "./mock-data"
+import { productsApi, categoriesApi } from "./api-client"
 
 interface AdminContextType {
   products: Product[]
@@ -11,12 +11,13 @@ interface AdminContextType {
   orders: Order[]
   socialMediaPosts: SocialMediaPost[]
   promotionalBanners: PromotionalBanner[]
-  addProduct: (product: Omit<Product, "id" | "createdAt">) => void
-  updateProduct: (id: string, product: Partial<Product>) => void
-  deleteProduct: (id: string) => void
-  addCategory: (category: Omit<Category, "id">) => void
-  updateCategory: (id: string, category: Partial<Category>) => void
-  deleteCategory: (id: string) => void
+  isLoading: boolean
+  addProduct: (product: Omit<Product, "id" | "createdAt">) => Promise<void>
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>
+  deleteProduct: (id: string) => Promise<void>
+  addCategory: (category: Omit<Category, "id">) => Promise<void>
+  updateCategory: (id: string, category: Partial<Category>) => Promise<void>
+  deleteCategory: (id: string) => Promise<void>
   markMessageRead: (id: string) => void
   deleteMessage: (id: string) => void
   updateOrderStatus: (id: string, status: Order["status"]) => void
@@ -26,178 +27,138 @@ interface AdminContextType {
   addPromotionalBanner: (banner: Omit<PromotionalBanner, "id" | "createdAt">) => void
   updatePromotionalBanner: (id: string, banner: Partial<PromotionalBanner>) => void
   deletePromotionalBanner: (id: string) => void
+  refreshProducts: () => Promise<void>
+  refreshCategories: () => Promise<void>
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined)
 
-const initialSocialMediaPosts: SocialMediaPost[] = [
-  { id: "1", thumbnail: "/placeholder.svg?height=400&width=300", title: "Unboxing Surprise", isActive: true, createdAt: new Date().toISOString(), order: 1 },
-  { id: "2", thumbnail: "/placeholder.svg?height=400&width=300", title: "Gift Wrapping Ideas", isActive: true, createdAt: new Date().toISOString(), order: 2 },
-  { id: "3", thumbnail: "/placeholder.svg?height=400&width=300", title: "Birthday Surprise", isActive: true, createdAt: new Date().toISOString(), order: 3 },
-  { id: "4", thumbnail: "/placeholder.svg?height=400&width=300", title: "Anniversary Special", isActive: true, createdAt: new Date().toISOString(), order: 4 },
-  { id: "5", thumbnail: "/placeholder.svg?height=400&width=300", title: "Custom Gifts", isActive: true, createdAt: new Date().toISOString(), order: 5 },
-  { id: "6", thumbnail: "/placeholder.svg?height=400&width=300", title: "Festival Decor", isActive: true, createdAt: new Date().toISOString(), order: 6 },
-]
-
-const initialPromotionalBanners: PromotionalBanner[] = [
-  {
-    id: "1",
-    image: "/placeholder.svg?height=400&width=800",
-    title: "Valentine's Special Offer",
-    link: "/shop?festival=valentine",
-    isActive: true,
-    order: 1,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    image: "/placeholder.svg?height=400&width=800",
-    title: "Birthday Celebration Sale",
-    link: "/shop?category=birthday-gifts",
-    isActive: true,
-    order: 2,
-    createdAt: new Date().toISOString(),
-  },
-]
-
 export function AdminProvider({ children }: { children: ReactNode }) {
-  const [products, setProducts] = useState<Product[]>(initialProducts)
-  const [categories, setCategories] = useState<Category[]>(initialCategories)
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [messages, setMessages] = useState<ContactMessage[]>([])
   const [orders, setOrders] = useState<Order[]>([])
-  const [socialMediaPosts, setSocialMediaPosts] = useState<SocialMediaPost[]>(initialSocialMediaPosts)
-  const [promotionalBanners, setPromotionalBanners] = useState<PromotionalBanner[]>(initialPromotionalBanners)
-  const [isLoaded, setIsLoaded] = useState(false)
+  const [socialMediaPosts, setSocialMediaPosts] = useState<SocialMediaPost[]>([])
+  const [promotionalBanners, setPromotionalBanners] = useState<PromotionalBanner[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // Load data from localStorage on mount (client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
+  // Load products and categories from API
+  const loadProducts = async () => {
     try {
-      const savedProducts = localStorage.getItem("adminProducts")
-      const savedCategories = localStorage.getItem("adminCategories")
-      const savedMessages = localStorage.getItem("contactMessages")
-      const savedOrders = localStorage.getItem("adminOrders")
-      const savedSocialMediaPosts = localStorage.getItem("adminSocialMediaPosts")
-      const savedPromotionalBanners = localStorage.getItem("adminPromotionalBanners")
-
-      if (savedProducts) {
-        try {
-          const parsed = JSON.parse(savedProducts)
-          if (Array.isArray(parsed)) setProducts(parsed)
-        } catch (e) {
-          console.error("Failed to parse products:", e)
-        }
-      }
-      if (savedCategories) {
-        try {
-          const parsed = JSON.parse(savedCategories)
-          if (Array.isArray(parsed)) setCategories(parsed)
-        } catch (e) {
-          console.error("Failed to parse categories:", e)
-        }
-      }
-      if (savedMessages) {
-        try {
-          const parsed = JSON.parse(savedMessages)
-          if (Array.isArray(parsed)) setMessages(parsed)
-        } catch (e) {
-          console.error("Failed to parse messages:", e)
-        }
-      }
-      if (savedOrders) {
-        try {
-          const parsed = JSON.parse(savedOrders)
-          if (Array.isArray(parsed)) setOrders(parsed)
-        } catch (e) {
-          console.error("Failed to parse orders:", e)
-        }
-      }
-      if (savedSocialMediaPosts) {
-        try {
-          const parsed = JSON.parse(savedSocialMediaPosts)
-          if (Array.isArray(parsed)) setSocialMediaPosts(parsed)
-        } catch (e) {
-          console.error("Failed to parse social media posts:", e)
-        }
-      }
-      if (savedPromotionalBanners) {
-        try {
-          const parsed = JSON.parse(savedPromotionalBanners)
-          if (Array.isArray(parsed)) setPromotionalBanners(parsed)
-        } catch (e) {
-          console.error("Failed to parse promotional banners:", e)
-        }
-      }
-
-      setIsLoaded(true)
-    } catch (e) {
-      console.error("Error loading from localStorage:", e)
-      setIsLoaded(true)
+      const data = await productsApi.getAll()
+      setProducts(data)
+    } catch (error) {
+      console.error("Error loading products:", error)
+      setProducts([])
     }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const data = await categoriesApi.getAll()
+      setCategories(data)
+    } catch (error) {
+      console.error("Error loading categories:", error)
+      setCategories([])
+    }
+  }
+
+  // Initial load
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true)
+      await Promise.all([loadProducts(), loadCategories()])
+      setIsLoading(false)
+    }
+    loadData()
   }, [])
 
-  // Save data to localStorage when it changes (client-side only)
-  useEffect(() => {
-    if (typeof window === "undefined" || !isLoaded) return
-
+  // Product operations - now using API
+  const addProduct = async (product: Omit<Product, "id" | "createdAt">) => {
     try {
-      localStorage.setItem("adminProducts", JSON.stringify(products))
-      localStorage.setItem("adminCategories", JSON.stringify(categories))
-      localStorage.setItem("contactMessages", JSON.stringify(messages))
-      localStorage.setItem("adminOrders", JSON.stringify(orders))
-      localStorage.setItem("adminSocialMediaPosts", JSON.stringify(socialMediaPosts))
-      localStorage.setItem("adminPromotionalBanners", JSON.stringify(promotionalBanners))
-    } catch (e) {
-      console.error("Error saving to localStorage:", e)
+      const newProduct = await productsApi.create(product)
+      setProducts((prev) => [...prev, newProduct])
+    } catch (error) {
+      console.error("Error adding product:", error)
+      throw error
     }
-  }, [products, categories, messages, orders, socialMediaPosts, promotionalBanners, isLoaded])
+  }
 
-  const addProduct = (product: Omit<Product, "id" | "createdAt">) => {
-    const newProduct: Product = {
-      ...product,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
+  const updateProduct = async (id: string, product: Partial<Product>) => {
+    try {
+      const updatedProduct = await productsApi.update(id, product)
+      setProducts((prev) => prev.map((p) => (p.id === id ? updatedProduct : p)))
+    } catch (error) {
+      console.error("Error updating product:", error)
+      throw error
     }
-    setProducts((prev) => [...prev, newProduct])
   }
 
-  const updateProduct = (id: string, product: Partial<Product>) => {
-    setProducts((prev) => prev.map((p) => (p.id === id ? { ...p, ...product } : p)))
-  }
-
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id))
-  }
-
-  const addCategory = (category: Omit<Category, "id">) => {
-    const newCategory: Category = {
-      ...category,
-      id: Date.now().toString(),
+  const deleteProduct = async (id: string) => {
+    try {
+      await productsApi.delete(id)
+      setProducts((prev) => prev.filter((p) => p.id !== id))
+    } catch (error) {
+      console.error("Error deleting product:", error)
+      throw error
     }
-    setCategories((prev) => [...prev, newCategory])
   }
 
-  const updateCategory = (id: string, category: Partial<Category>) => {
-    setCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...category } : c)))
+  // Category operations - now using API
+  const addCategory = async (category: Omit<Category, "id">) => {
+    try {
+      const newCategory = await categoriesApi.create(category)
+      setCategories((prev) => [...prev, newCategory])
+    } catch (error) {
+      console.error("Error adding category:", error)
+      throw error
+    }
   }
 
-  const deleteCategory = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id))
+  const updateCategory = async (id: string, category: Partial<Category>) => {
+    try {
+      const updatedCategory = await categoriesApi.update(id, category)
+      setCategories((prev) => prev.map((c) => (c.id === id ? updatedCategory : c)))
+    } catch (error) {
+      console.error("Error updating category:", error)
+      throw error
+    }
   }
 
+  const deleteCategory = async (id: string) => {
+    try {
+      await categoriesApi.delete(id)
+      setCategories((prev) => prev.filter((c) => c.id !== id))
+    } catch (error) {
+      console.error("Error deleting category:", error)
+      throw error
+    }
+  }
+
+  // Messages (still using localStorage for now, can be migrated to API later)
   const markMessageRead = (id: string) => {
     setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, isRead: true } : m)))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("contactMessages", JSON.stringify(messages))
+    }
   }
 
   const deleteMessage = (id: string) => {
     setMessages((prev) => prev.filter((m) => m.id !== id))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("contactMessages", JSON.stringify(messages))
+    }
   }
 
+  // Orders (still using localStorage for now)
   const updateOrderStatus = (id: string, status: Order["status"]) => {
     setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminOrders", JSON.stringify(orders))
+    }
   }
 
+  // Social media posts (still using localStorage for now)
   const addSocialMediaPost = (post: Omit<SocialMediaPost, "id" | "createdAt">) => {
     const newPost: SocialMediaPost = {
       ...post,
@@ -205,6 +166,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     }
     setSocialMediaPosts((prev) => [...prev, newPost].sort((a, b) => a.order - b.order))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminSocialMediaPosts", JSON.stringify(socialMediaPosts))
+    }
   }
 
   const updateSocialMediaPost = (id: string, post: Partial<SocialMediaPost>) => {
@@ -213,12 +177,19 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         .map((p) => (p.id === id ? { ...p, ...post } : p))
         .sort((a, b) => a.order - b.order)
     )
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminSocialMediaPosts", JSON.stringify(socialMediaPosts))
+    }
   }
 
   const deleteSocialMediaPost = (id: string) => {
     setSocialMediaPosts((prev) => prev.filter((p) => p.id !== id))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminSocialMediaPosts", JSON.stringify(socialMediaPosts))
+    }
   }
 
+  // Promotional banners (still using localStorage for now)
   const addPromotionalBanner = (banner: Omit<PromotionalBanner, "id" | "createdAt">) => {
     const newBanner: PromotionalBanner = {
       ...banner,
@@ -226,6 +197,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     }
     setPromotionalBanners((prev) => [...prev, newBanner].sort((a, b) => a.order - b.order))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminPromotionalBanners", JSON.stringify(promotionalBanners))
+    }
   }
 
   const updatePromotionalBanner = (id: string, banner: Partial<PromotionalBanner>) => {
@@ -234,10 +208,25 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         .map((b) => (b.id === id ? { ...b, ...banner } : b))
         .sort((a, b) => a.order - b.order)
     )
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminPromotionalBanners", JSON.stringify(promotionalBanners))
+    }
   }
 
   const deletePromotionalBanner = (id: string) => {
     setPromotionalBanners((prev) => prev.filter((b) => b.id !== id))
+    if (typeof window !== "undefined") {
+      localStorage.setItem("adminPromotionalBanners", JSON.stringify(promotionalBanners))
+    }
+  }
+
+  // Refresh functions
+  const refreshProducts = async () => {
+    await loadProducts()
+  }
+
+  const refreshCategories = async () => {
+    await loadCategories()
   }
 
   return (
@@ -249,6 +238,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         orders,
         socialMediaPosts,
         promotionalBanners,
+        isLoading,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -264,6 +254,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         addPromotionalBanner,
         updatePromotionalBanner,
         deletePromotionalBanner,
+        refreshProducts,
+        refreshCategories,
       }}
     >
       {children}

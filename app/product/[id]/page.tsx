@@ -1,13 +1,13 @@
 "use client"
 
-import { use, useState } from "react"
+import { use, useState, useEffect } from "react"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { ProductCard } from "@/components/product-card"
 import { ProductReviews } from "@/components/product-reviews"
-import { CartProvider, useCart } from "@/lib/cart-context"
-import { products, categories } from "@/lib/mock-data"
-import type { ProductSize } from "@/lib/types"
+import { useCart } from "@/lib/cart-context"
+import { productsApi, categoriesApi } from "@/lib/api-client"
+import type { Product, ProductSize, Category } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
@@ -18,27 +18,71 @@ interface ProductPageProps {
 }
 
 function ProductContent({ productId }: { productId: string }) {
-  const product = products.find((p) => p.id === productId)
   const { addToCart } = useCart()
+  const [product, setProduct] = useState<Product | null>(null)
+  const [category, setCategory] = useState<Category | null>(null)
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [quantity, setQuantity] = useState(1)
-  const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(product?.sizes?.[0])
+  const [selectedSize, setSelectedSize] = useState<ProductSize | undefined>(undefined)
   const [selectedImage, setSelectedImage] = useState(0)
+
+  useEffect(() => {
+    const loadProduct = async () => {
+      try {
+        setIsLoading(true)
+        const productData = await productsApi.getById(productId)
+        setProduct(productData)
+        setSelectedSize(productData.sizes?.[0])
+
+        // Load category
+        if (productData.categoryId) {
+          const categoriesData = await categoriesApi.getAll()
+          const foundCategory = categoriesData.find((c: Category) => c.id === productData.categoryId)
+          setCategory(foundCategory || null)
+        }
+
+        // Load related products
+        if (productData.categoryId) {
+          const allProducts = await productsApi.getAll({ categoryId: productData.categoryId })
+          const related = allProducts.filter((p: Product) => p.id !== productId).slice(0, 4)
+          setRelatedProducts(related)
+        }
+      } catch (error) {
+        console.error("Error loading product:", error)
+        setProduct(null)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadProduct()
+  }, [productId])
+
+  if (isLoading) {
+    return (
+      <main className="flex-1 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading product...</p>
+        </div>
+      </main>
+    )
+  }
 
   if (!product) {
     return (
-      <main className="flex-1 flex items-center justify-center">
+      <main className="flex-1 flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold text-foreground">Product not found</h1>
-          <Link href="/shop" className="text-primary hover:underline mt-2 inline-block">
+          <h1 className="text-2xl font-semibold text-foreground mb-2">Product not found</h1>
+          <p className="text-muted-foreground mb-4">The product you're looking for doesn't exist or has been removed.</p>
+          <Link href="/shop" className="text-primary hover:underline inline-block">
             Browse all products
           </Link>
         </div>
       </main>
     )
   }
-
-  const category = categories.find((c) => c.slug === product.category)
-  const relatedProducts = products.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4)
 
   const currentPrice = selectedSize?.price || product.price
 
@@ -217,12 +261,10 @@ export default function ProductPage({ params }: ProductPageProps) {
   const { id } = use(params)
 
   return (
-    <CartProvider>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <ProductContent productId={id} />
-        <Footer />
-      </div>
-    </CartProvider>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <ProductContent productId={id} />
+      <Footer />
+    </div>
   )
 }

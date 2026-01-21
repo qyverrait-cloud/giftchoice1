@@ -2,7 +2,7 @@
 
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { CartProvider, useCart } from "@/lib/cart-context"
+import { useCart } from "@/lib/cart-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Link from "next/link"
@@ -207,12 +207,10 @@ function CartContent() {
 
 export default function CartPage() {
   return (
-    <CartProvider>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <CartContent />
-        <Footer />
-      </div>
-    </CartProvider>
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <CartContent />
+      <Footer />
+    </div>
   )
 }
